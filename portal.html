@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>AcessaNet | Wi-Fi</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="shortcut icon" href="images/logo.ico">
+
+  <script src="jquery.js"></script>
+
+  <style>
+    :root {
+      --primary: #0b5fa5;
+      --secondary: #0b8fd6;
+      --bg: #f4f7fb;
+      --muted: #6b7280;
+      --white: #ffffff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .card {
+      background: var(--white);
+      width: 90%;
+      max-width: 420px;
+      padding: 36px 28px;
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, .08);
+      text-align: center;
+    }
+
+    .logo img {
+      width: 100px;
+      margin-bottom: 15px;
+    }
+
+    h1 {
+      font-size: 22px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 25px;
+    }
+
+    .inputs {
+      width: 100%;
+      height: 48px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      padding: 0 14px;
+      font-size: 15px;
+      margin-bottom: 16px;
+    }
+
+    .terms {
+      display: flex;
+      gap: 8px;
+      justify-content: first baseline;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+    #agree{
+     transform: scale(1.5);
+     margin-left: 10px;
+     margin-right: 10px;
+    }
+    label{
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      height: 50px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+    }
+
+    .status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <div class="logo">
+      <img src="./images/logo.png">
+    </div>
+
+    <h1>Bem-vindo à AcessaNet</h1>
+    <div class="subtitle">Internet rápida e segura</div>
+
+    <form id="loginForm">
+
+      <input type="text" id="nome" placeholder="Nome completo" class="inputs" required>
+      <input type="tel" id="telefone" placeholder="Telefone" class="inputs" required>
+
+      <div class="terms">
+        <input type="checkbox" id="agree">
+        <label for="agree">Aceito os <a href="terms_user/terms_of_use.html" target="_blank">Termos de uso</a></label>
+      </div>
+
+      <button id="btn" disabled>Conectar</button>
+
+    </form>
+
+    <div class="status" id="status"></div>
+
+  </div>
+
+
+  <script>
+
+    var clickable = true;
+
+
+    /* =============================
+       PEGA URL DE REDIRECIONAMENTO
+    ============================= */
+    function getAuthTarget() {
+
+      var search = window.location.search;
+
+      if (search.indexOf("GsRequestUri") !== -1) {
+
+        var params = new URLSearchParams(search);
+        return params.get("GsRequestUri");
+      }
+
+      return "";
+    }
+
+
+    /* =============================
+       HABILITA BOTÃO
+    ============================= */
+
+    $("#agree").on("change", function () {
+
+      if (this.checked && clickable) {
+        $("#btn").removeAttr("disabled");
+      } else {
+        $("#btn").attr("disabled", "disabled");
+      }
+
+    });
+
+
+    /* =============================
+       SUBMIT
+    ============================= */
+
+    $("#loginForm").on("submit", function (e) {
+
+      e.preventDefault();
+
+      if (!clickable) return;
+
+      clickable = false;
+
+      $("#btn").attr("disabled", "disabled").text("Conectando...");
+      $("#status").text("");
+
+      autenticar();
+
+    });
+
+
+    /* =============================
+       AUTENTICAÇÃO PADRÃO GWN
+    ============================= */
+
+    function autenticar() {
+
+      var redirect = getAuthTarget();
+
+      $.ajax({
+
+        url: window.location.protocol + "//" + window.location.host + "/GsUserAuth.cgi",
+
+        type: "POST",
+
+        timeout: 30000,
+
+        dataType: "json",
+
+        data: {
+          GsUserAuthMethod: 0,
+          GsUserRealReqUrl: redirect
+        },
+
+        success: function (res) {
+
+          clickable = true;
+
+          var status = res.result;
+
+          if (status == 1 || status == 16028) {
+
+            salvarDados();
+
+            if (redirect) {
+              window.location.href = redirect;
+            } else {
+              $("#status").text("Conectado com sucesso!");
+              $("#btn").text("Conectado");
+            }
+
+          } else {
+            erro();
+          }
+
+        },
+
+        error: function () {
+
+          erro();
+
+        }
+
+      });
+
+    }
+
+    /* =============================
+       ERRO
+    ============================= */
+
+    function erro() {
+
+      clickable = true;
+
+      $("#status").text("Falha ao conectar.");
+
+      $("#btn").removeAttr("disabled").text("Conectar");
+
+    }
+
+
+    /* =============================
+       SALVAR DADOS (OPCIONAL)
+    ============================= */
+
+    function salvarDados() {
+      fetch("https://script.google.com/macros/s/AKfycbzNZ0bjk0jwwhE3Lyy5k2ntIFgwS0LvFhy66cbZPDeHuXPqb_YfgILgjcl0bZ-TMdhzrA/exec", {
+        method: "POST",
+        mode: "no-cors",
+        body: JSON.stringify({
+          nome: $("#nome").val(),
+          telefone: $("#telefone").val()
+        })
+      });
+
+    }
+
+  </script>
+
+</body>
+
+</html>
